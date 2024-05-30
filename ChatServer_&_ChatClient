@@ -1,0 +1,100 @@
+// ChatServer.java
+import java.io.*;
+import java.net.*;
+import java.util.*;
+
+public class ChatServer {
+  private static final int PORT = 12345;
+  private static Set<PrintWriter> clientWriters = new HashSet<>();
+
+  public static void main(String[] args) {
+  try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+  System.out.println("Chat Server is running...");
+  while (true) {
+  new Handler(serverSocket.accept()).start();
+  }
+  } catch (IOException e) {
+  e.printStackTrace();
+  }
+  }
+
+  private static class Handler extends Thread {
+  private Socket socket;
+  private PrintWriter writer;
+
+  public Handler(Socket socket) {
+  this.socket = socket;
+  }
+
+  public void run() {
+  try {
+  writer = new PrintWriter(socket.getOutputStream(), true);
+  clientWriters.add(writer);
+  BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+  String message;
+  while ((message = reader.readLine()) != null) {
+  for (PrintWriter clientWriter : clientWriters) {
+  clientWriter.println(message);
+  }
+  }
+  } catch (IOException e) {
+  e.printStackTrace();
+  } finally {
+  if (writer != null) {
+  clientWriters.remove(writer);
+  }
+  try {
+  socket.close();
+  } catch (IOException e) {
+  e.printStackTrace();
+  }
+  }
+  }
+  }
+}
+
+
+// ChatClient.java
+import java.io.*;
+import java.net.*;
+
+public class ChatClient {
+	private static final String SERVER_IP = "127.0.0.1";
+	private static final int SERVER_PORT = 12345;
+
+	public static void main(String[] args) {
+    	try (Socket socket = new Socket(SERVER_IP, SERVER_PORT);
+         	BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+         	PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
+         	BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in))) {
+
+        	System.out.println("You are connected to the chat server!");
+        	new Thread(new MessageReceiver(reader)).start();
+        	while (true) {
+            	String message = userInput.readLine();
+            	writer.println(message);
+        	}
+    	} catch (IOException e) {
+        	e.printStackTrace();
+    	}
+	}
+
+	private static class MessageReceiver implements Runnable {
+    	private BufferedReader reader;
+
+    	public MessageReceiver(BufferedReader reader) {
+        	this.reader = reader;
+    	}
+
+    	public void run() {
+        	try {
+            	String message;
+            	while ((message = reader.readLine()) != null) {
+                	System.out.println(message);
+            	}
+        	} catch (IOException e) {
+            	e.printStackTrace();
+        	}
+    	}
+	}
+}
